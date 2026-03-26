@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Split Flap Display</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --flap-bg: #1a1a1a;
+    --flap-text: #e8d44d;
+    --flap-border: #333;
+    --flap-gap: 3px;
+    --flap-radius: 4px;
+    --panel-bg: #0d0d0d;
+    --line-height-flap: 1;
+  }
+
+  body {
+    background: var(--panel-bg);
+    color: #ccc;
+    font-family: 'Roboto Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ── DISPLAY AREA ── */
+  #display-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    gap: 12px;
+  }
+
+  .flap-row {
+    display: flex;
+    gap: var(--flap-gap);
+    justify-content: center;
+  }
+
+  /* ── SINGLE FLAP ── */
+  .flap-char {
+    width: clamp(28px, 4vw, 64px);
+    height: clamp(42px, 6vw, 96px);
+    position: relative;
+    perspective: 200px;
+    font-size: clamp(20px, 3.2vw, 56px);
+    font-weight: 700;
+    line-height: var(--line-height-flap);
+  }
+
+  .flap-char .top,
+  .flap-char .bottom {
+    position: absolute;
+    left: 0; right: 0;
+    height: 50%;
+    overflow: hidden;
+    background: var(--flap-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--flap-text);
+    border: 1px solid var(--flap-border);
+  }
+
+  .flap-char .top {
+    top: 0;
+    border-radius: var(--flap-radius) var(--flap-radius) 0 0;
+    align-items: flex-end;
+    border-bottom: none;
+  }
+  .flap-char .top span { transform: translateY(50%); }
+
+  .flap-char .bottom {
+    bottom: 0;
+    border-radius: 0 0 var(--flap-radius) var(--flap-radius);
+    align-items: flex-start;
+    border-top: 1px solid #444;
+  }
+  .flap-char .bottom span { transform: translateY(-50%); }
+
+  .flap-char::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0; right: 0;
+    height: 2px;
+    background: #000;
+    z-index: 5;
+    transform: translateY(-50%);
+  }
+
+  /* ── FLIP ANIMATION OVERLAY ── */
+  .flap-char .flip-top,
+  .flap-char .flip-bottom {
+    position: absolute;
+    left: 0; right: 0;
+    height: 50%;
+    overflow: hidden;
+    background: var(--flap-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--flap-text);
+    border: 1px solid var(--flap-border);
+    z-index: 10;
+    backface-visibility: hidden;
+  }
+
+  .flap-char .flip-top {
+    top: 0;
+    border-radius: var(--flap-radius) var(--flap-radius) 0 0;
+    transform-origin: bottom center;
+    align-items: flex-end;
+    border-bottom: none;
+  }
+  .flap-char .flip-top span { transform: translateY(50%); }
+
+  .flap-char .flip-bottom {
+    bottom: 0;
+    border-radius: 0 0 var(--flap-radius) var(--flap-radius);
+    transform-origin: top center;
+    transform: rotateX(90deg);
+    align-items: flex-start;
+    border-top: 1px solid #444;
+  }
+  .flap-char .flip-bottom span { transform: translateY(-50%); }
+
+  .flap-char .flip-top.animate { animation: flipDown 0.15s ease-in forwards; }
+  .flap-char .flip-bottom.animate { animation: flipUp 0.15s 0.15s ease-out forwards; }
+
+  @keyframes flipDown {
+    0%   { transform: rotateX(0deg); }
+    100% { transform: rotateX(-90deg); }
+  }
+  @keyframes flipUp {
+    0%   { transform: rotateX(90deg); }
+    100% { transform: rotateX(0deg); }
+  }
+
+  /* ── CONTROL PANEL ── */
+  #controls {
+    background: #111;
+    border-top: 1px solid #333;
+    padding: 16px 20px;
+    transition: transform 0.3s;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  #controls.hidden { transform: translateY(100%); }
+
+  .ctrl-section {
+    margin-bottom: 14px;
+    border-bottom: 1px solid #222;
+    padding-bottom: 12px;
+  }
+  .ctrl-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .ctrl-section-title {
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .ctrl-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .ctrl-row:last-child { margin-bottom: 0; }
+
+  label {
+    font-size: 12px;
+    color: #888;
+    min-width: 60px;
+  }
+
+  input[type="text"], textarea, select {
+    background: #1a1a1a;
+    border: 1px solid #444;
+    color: var(--flap-text);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 14px;
+    flex: 1;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 40px;
+  }
+
+  button {
+    background: #e8d44d;
+    color: #111;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 4px;
+    font-family: 'Roboto Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  button:hover { background: #f0e06a; }
+  button.secondary { background: #333; color: #ccc; }
+  button.secondary:hover { background: #444; }
+  button.active { background: #4caf50; color: #fff; }
+  button.danger { background: #444; color: #f44; font-size: 11px; padding: 4px 8px; }
+  button.danger:hover { background: #f44; color: #fff; }
+
+  .feed-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  /* ── MESSAGE LIST ── */
+  #message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .msg-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--flap-text);
+  }
+
+  .msg-item .msg-text {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .msg-item .msg-num {
+    color: #555;
+    font-size: 10px;
+    min-width: 20px;
+  }
+
+  .msg-item button {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  /* ── HEADER BAR ── */
+  #header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background: #111;
+    border-bottom: 1px solid #222;
+  }
+
+  #header-bar .title {
+    color: var(--flap-text);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+  }
+
+  #header-bar .clock { color: #888; font-size: 13px; }
+
+  .toggle-ctrl {
+    background: none;
+    border: 1px solid #444;
+    color: #888;
+    font-size: 18px;
+    padding: 4px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .toggle-ctrl:hover { color: #ccc; border-color: #666; }
+
+  /* ── STATUS BAR ── */
+  #status-bar {
+    text-align: center;
+    font-size: 11px;
+    color: #555;
+    padding: 6px;
+    background: #0a0a0a;
+  }
+
+  /* ── FULLSCREEN ── */
+  body.fullscreen #controls { display: none; }
+  body.fullscreen #header-bar { display: none; }
+  body.fullscreen #status-bar { display: none; }
+
+  .sound-icon { cursor: pointer; font-size: 16px; color: #666; }
+  .sound-icon:hover { color: #aaa; }
+
+  /* ── COLOR THEMES ── */
+  body.theme-green { --flap-text: #39ff14; }
+  body.theme-white { --flap-text: #f0f0f0; }
+  body.theme-orange { --flap-text: #ff9800; }
+  body.theme-cyan { --flap-text: #00e5ff; }
+  body.theme-yellow { --flap-text: #e8d44d; }
+
+  /* ── AUTO INDICATOR ── */
+  .auto-source {
+    display: inline-block;
+    background: #222;
+    color: #888;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+  }
+  .auto-source.user { color: var(--flap-text); border: 1px solid var(--flap-text); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header-bar">
+  <span class="title">SPLIT FLAP DISPLAY</span>
+  <span class="clock" id="clock"></span>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <span class="sound-icon" id="sound-toggle" title="Sound">&#128264;</span>
+    <button class="toggle-ctrl" id="btn-toggle-ctrl" title="Show/hide controls">&#9881;</button>
+    <button class="toggle-ctrl" id="btn-fullscreen" title="Fullscreen">&#9974;</button>
+  </div>
+</div>
+
+<!-- DISPLAY -->
+<div id="display-area"></div>
+
+<!-- STATUS -->
+<div id="status-bar">Ready</div>
+
+<!-- CONTROLS -->
+<div id="controls">
+
+  <!-- Messages Section -->
+  <div class="ctrl-section">
+    <div class="ctrl-section-title">Messages</div>
+    <div class="ctrl-row">
+      <textarea id="input-msg" placeholder="Type your message (use Enter for new line)" rows="2">WELCOME TO THE
+SPLIT FLAP DISPLAY</textarea>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <button id="btn-show">SHOW</button>
+        <button id="btn-add" class="secondary">+ ADD</button>
+      </div>
+    </div>
+    <div id="message-list"></div>
+  </div>
+
+  <!-- Feeds Section -->
+  <div class="ctrl-section">
+    <div class="ctrl-section-title">Feeds & Auto</div>
+    <div class="ctrl-row">
+      <label>Feeds:</label>
+      <div class="feed-btns">
+        <button class="secondary" data-feed="news">News</button>
+        <button class="secondary" data-feed="sports">Sports</button>
+        <button class="secondary" data-feed="weather">Weather</button>
+        <button class="secondary" data-feed="tech">Tech</button>
+        <button class="secondary" data-feed="quotes">Quotes</button>
+      </div>
+    </div>
+    <div class="ctrl-row">
+      <label>Auto:</label>
+      <button class="secondary" id="btn-auto" title="Auto-rotate through messages and feeds">AUTO</button>
+      <select id="sel-interval">
+        <option value="8000">8s</option>
+        <option value="12000">12s</option>
+        <option value="15000" selected>15s</option>
+        <option value="20000">20s</option>
+        <option value="30000">30s</option>
+        <option value="60000">1 min</option>
+      </select>
+      <span id="auto-indicator" style="font-size:11px;color:#555;"></span>
+    </div>
+  </div>
+
+  <!-- Settings Section -->
+  <div class="ctrl-section">
+    <div class="ctrl-section-title">Settings</div>
+    <div class="ctrl-row">
+      <select id="sel-cols">
+        <option value="20">20 cols</option>
+        <option value="25">25 cols</option>
+        <option value="30" selected>30 cols</option>
+        <option value="35">35 cols</option>
+        <option value="40">40 cols</option>
+      </select>
+      <select id="sel-rows">
+        <option value="3">3 rows</option>
+        <option value="4" selected>4 rows</option>
+        <option value="5">5 rows</option>
+        <option value="6">6 rows</option>
+        <option value="8">8 rows</option>
+      </select>
+      <select id="sel-speed">
+        <option value="30">Fast</option>
+        <option value="50" selected>Normal</option>
+        <option value="80">Slow</option>
+        <option value="120">Very slow</option>
+      </select>
+      <select id="sel-theme">
+        <option value="yellow">Yellow</option>
+        <option value="green">Green</option>
+        <option value="white">White</option>
+        <option value="orange">Orange</option>
+        <option value="cyan">Cyan</option>
+      </select>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── CHARSET ──
+const CHARS = ' ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:;!?-+/()@#&\'\"';
+
+// ── STATE ──
+let COLS = 30;
+let ROWS = 4;
+let FLIP_DELAY = 50;
+let soundOn = true;
+let autoMode = false;
+let autoTimer = null;
+let autoInterval = 15000;
+let autoIndex = 0;
+
+// ── USER MESSAGES ──
+let userMessages = [];
+
+// ── AUTO SOURCES (user messages + feeds interleaved) ──
+const feedTypes = ['news', 'sports', 'weather', 'tech', 'quotes'];
+
+function getAutoQueue() {
+  // Build queue: all user messages first, then all feeds, interleaved
+  const queue = [];
+  // Add user messages
+  for (let i = 0; i < userMessages.length; i++) {
+    queue.push({ type: 'user', index: i, text: userMessages[i] });
+  }
+  // Add feeds
+  for (const f of feedTypes) {
+    queue.push({ type: 'feed', feed: f });
+  }
+  return queue;
+}
+
+// ── AUDIO CONTEXT (mechanical flap sound) ──
+let audioCtx = null;
+let noiseBuffer = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const sampleRate = audioCtx.sampleRate;
+  const length = sampleRate * 0.1;
+  noiseBuffer = audioCtx.createBuffer(1, length, sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < length; i++) {
+    data[i] = (Math.random() * 2 - 1);
+  }
+}
+
+function playClick() {
+  if (!soundOn) return;
+  try {
+    initAudio();
+    const t = audioCtx.currentTime;
+
+    const clickNoise = audioCtx.createBufferSource();
+    clickNoise.buffer = noiseBuffer;
+    const clickFilter = audioCtx.createBiquadFilter();
+    clickFilter.type = 'bandpass';
+    clickFilter.frequency.setValueAtTime(3000 + Math.random() * 1500, t);
+    clickFilter.Q.setValueAtTime(2, t);
+    const clickGain = audioCtx.createGain();
+    clickGain.gain.setValueAtTime(0.12, t);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+    clickNoise.connect(clickFilter);
+    clickFilter.connect(clickGain);
+    clickGain.connect(audioCtx.destination);
+    clickNoise.start(t);
+    clickNoise.stop(t + 0.02);
+
+    const thud = audioCtx.createOscillator();
+    thud.type = 'sine';
+    thud.frequency.setValueAtTime(150 + Math.random() * 80, t);
+    thud.frequency.exponentialRampToValueAtTime(60, t + 0.03);
+    const thudGain = audioCtx.createGain();
+    thudGain.gain.setValueAtTime(0.08, t);
+    thudGain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
+    thud.connect(thudGain);
+    thudGain.connect(audioCtx.destination);
+    thud.start(t);
+    thud.stop(t + 0.04);
+
+    const rattle = audioCtx.createBufferSource();
+    rattle.buffer = noiseBuffer;
+    const rattleFilter = audioCtx.createBiquadFilter();
+    rattleFilter.type = 'highpass';
+    rattleFilter.frequency.setValueAtTime(5000 + Math.random() * 2000, t);
+    const rattleGain = audioCtx.createGain();
+    rattleGain.gain.setValueAtTime(0.0, t);
+    rattleGain.gain.linearRampToValueAtTime(0.04, t + 0.008);
+    rattleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+    rattle.connect(rattleFilter);
+    rattleFilter.connect(rattleGain);
+    rattleGain.connect(audioCtx.destination);
+    rattle.start(t);
+    rattle.stop(t + 0.06);
+  } catch(e) {}
+}
+
+// ── BUILD GRID ──
+const displayArea = document.getElementById('display-area');
+let grid = [];
+
+function buildGrid() {
+  displayArea.innerHTML = '';
+  grid = [];
+  for (let r = 0; r < ROWS; r++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'flap-row';
+    const rowArr = [];
+    for (let c = 0; c < COLS; c++) {
+      const flap = document.createElement('div');
+      flap.className = 'flap-char';
+      flap.innerHTML = '<div class="top"><span> </span></div><div class="bottom"><span> </span></div>';
+      rowDiv.appendChild(flap);
+      rowArr.push({ element: flap, current: ' ' });
+    }
+    displayArea.appendChild(rowDiv);
+    grid.push(rowArr);
+  }
+}
+
+// ── FLIP A SINGLE CHARACTER ──
+function flipChar(cell, targetChar) {
+  return new Promise(resolve => {
+    if (cell.current === targetChar) { resolve(); return; }
+
+    const el = cell.element;
+    const topHalf = el.querySelector('.top span');
+    const bottomHalf = el.querySelector('.bottom span');
+
+    const startIdx = CHARS.indexOf(cell.current) >= 0 ? CHARS.indexOf(cell.current) : 0;
+    const endIdx = CHARS.indexOf(targetChar) >= 0 ? CHARS.indexOf(targetChar) : 0;
+    let steps = [];
+    if (endIdx >= startIdx) {
+      for (let i = startIdx + 1; i <= endIdx; i++) steps.push(CHARS[i]);
+    } else {
+      for (let i = startIdx + 1; i < CHARS.length; i++) steps.push(CHARS[i]);
+      for (let i = 0; i <= endIdx; i++) steps.push(CHARS[i]);
+    }
+    if (steps.length === 0) steps.push(targetChar);
+
+    let stepIdx = 0;
+
+    function doStep() {
+      const ch = steps[stepIdx];
+      el.querySelectorAll('.flip-top, .flip-bottom').forEach(e => e.remove());
+
+      const flipTop = document.createElement('div');
+      flipTop.className = 'flip-top';
+      flipTop.innerHTML = `<span>${cell.current}</span>`;
+
+      const flipBottom = document.createElement('div');
+      flipBottom.className = 'flip-bottom';
+      flipBottom.innerHTML = `<span>${ch}</span>`;
+
+      el.appendChild(flipTop);
+      el.appendChild(flipBottom);
+
+      requestAnimationFrame(() => {
+        flipTop.classList.add('animate');
+        flipBottom.classList.add('animate');
+        playClick();
+      });
+
+      setTimeout(() => {
+        topHalf.textContent = ch;
+        bottomHalf.textContent = ch;
+        cell.current = ch;
+        el.querySelectorAll('.flip-top, .flip-bottom').forEach(e => e.remove());
+
+        stepIdx++;
+        if (stepIdx < steps.length) {
+          setTimeout(doStep, FLIP_DELAY);
+        } else {
+          resolve();
+        }
+      }, 300);
+    }
+
+    doStep();
+  });
+}
+
+// ── DISPLAY MESSAGE ──
+let isFlipping = false;
+
+async function displayMessage(text) {
+  if (isFlipping) return;
+  isFlipping = true;
+  setStatus('Updating...');
+
+  const lines = text.toUpperCase().split('\n');
+  const displayLines = [];
+  for (let r = 0; r < ROWS; r++) {
+    let line = (lines[r] || '').substring(0, COLS);
+    const pad = Math.max(0, Math.floor((COLS - line.length) / 2));
+    line = ' '.repeat(pad) + line + ' '.repeat(COLS - pad - line.length);
+    line = line.split('').map(ch => CHARS.includes(ch) ? ch : ' ').join('');
+    displayLines.push(line);
+  }
+
+  const promises = [];
+  for (let c = 0; c < COLS; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      const targetChar = displayLines[r][c];
+      const delay = c * 40 + r * 10;
+      promises.push(new Promise(res => {
+        setTimeout(() => flipChar(grid[r][c], targetChar).then(res), delay);
+      }));
+    }
+  }
+
+  await Promise.all(promises);
+  isFlipping = false;
+  setStatus('Ready');
+}
+
+// ── RSS FEEDS ──
+const RSS_SOURCES = {
+  news: {
+    label: 'NEWS',
+    feeds: [
+      'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
+      'https://feeds.bbci.co.uk/news/rss.xml'
+    ]
+  },
+  sports: {
+    label: 'SPORTS',
+    feeds: [
+      'https://www.espn.com/espn/rss/news',
+      'https://rss.nytimes.com/services/xml/rss/nyt/Sports.xml'
+    ]
+  },
+  weather: {
+    label: 'WEATHER',
+    feeds: []
+  },
+  tech: {
+    label: 'TECH',
+    feeds: [
+      'https://feeds.feedburner.com/TechCrunch/',
+      'https://www.theverge.com/rss/index.xml'
+    ]
+  },
+  quotes: {
+    label: 'QUOTES',
+    feeds: []
+  }
+};
+
+const QUOTES = [
+  "LIFE IS WHAT HAPPENS\nWHILE YOU ARE BUSY\nMAKING OTHER PLANS\n- JOHN LENNON",
+  "THE ONLY WAY TO DO\nGREAT WORK IS TO\nLOVE WHAT YOU DO\n- STEVE JOBS",
+  "IMAGINATION IS MORE\nIMPORTANT THAN\nKNOWLEDGE\n- ALBERT EINSTEIN",
+  "DON'T COUNT THE DAYS\nMAKE THE DAYS COUNT\n\n- MUHAMMAD ALI",
+  "SUCCESS IS NOT FINAL\nFAILURE IS NOT FATAL\nIT IS THE COURAGE\nTHAT COUNTS",
+  "BE YOURSELF\nEVERYONE ELSE IS\nALREADY TAKEN\n- OSCAR WILDE",
+  "THE BEST WAY TO\nPREDICT THE FUTURE\nIS TO CREATE IT\n- ABRAHAM LINCOLN",
+  "STAY HUNGRY\nSTAY FOOLISH\n\n- STEVE JOBS",
+  "IN THE MIDDLE OF\nDIFFICULTY LIES\nOPPORTUNITY\n- ALBERT EINSTEIN",
+  "THE JOURNEY OF A\nTHOUSAND MILES BEGINS\nWITH A SINGLE STEP\n- LAO TZU"
+];
+
+let quoteIndex = 0;
+
+async function fetchRSS(feedType) {
+  const source = RSS_SOURCES[feedType];
+  if (!source) return null;
+
+  if (feedType === 'quotes') {
+    const q = QUOTES[quoteIndex % QUOTES.length];
+    quoteIndex++;
+    return q;
+  }
+
+  if (feedType === 'weather') {
+    try {
+      const resp = await fetch('https://wttr.in/?format=%l:+%c+%t+%h+%w');
+      if (resp.ok) {
+        const text = await resp.text();
+        return `CURRENT WEATHER\n${text.trim().substring(0, COLS)}\n\nUPDATED JUST NOW`;
+      }
+    } catch(e) {}
+    return 'WEATHER\nCOULD NOT LOAD\nCHECK YOUR\nCONNECTION';
+  }
+
+  for (const feedUrl of source.feeds) {
+    try {
+      const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`;
+      const resp = await fetch(apiUrl);
+      if (!resp.ok) continue;
+      const data = await resp.json();
+      if (data.status === 'ok' && data.items && data.items.length > 0) {
+        const items = data.items.slice(0, 10);
+        const item = items[Math.floor(Math.random() * items.length)];
+        const title = item.title || 'NO TITLE';
+        return formatForDisplay(`${source.label}\n${title}`);
+      }
+    } catch(e) {
+      continue;
+    }
+  }
+
+  return `${source.label}\nCOULD NOT LOAD FEED\nPLEASE TRY AGAIN`;
+}
+
+function formatForDisplay(text) {
+  const rawLines = text.toUpperCase().split('\n');
+  const lines = [];
+
+  for (const rawLine of rawLines) {
+    const words = rawLine.split(/\s+/).filter(w => w);
+    let currentLine = '';
+    for (const word of words) {
+      if (currentLine.length + word.length + 1 > COLS) {
+        lines.push(currentLine.trim());
+        currentLine = word;
+      } else {
+        currentLine += (currentLine ? ' ' : '') + word;
+      }
+    }
+    if (currentLine.trim()) lines.push(currentLine.trim());
+  }
+
+  return lines.slice(0, ROWS).join('\n');
+}
+
+// ── MESSAGE LIST UI ──
+const messageListEl = document.getElementById('message-list');
+
+function renderMessageList() {
+  messageListEl.innerHTML = '';
+  if (userMessages.length === 0) {
+    messageListEl.innerHTML = '<div style="font-size:11px;color:#555;padding:4px;">No saved messages. Use "+ ADD" to add messages to the auto-rotation.</div>';
+    return;
+  }
+  userMessages.forEach((msg, i) => {
+    const item = document.createElement('div');
+    item.className = 'msg-item';
+    const preview = msg.replace(/\n/g, ' / ').substring(0, 50);
+    item.innerHTML = `
+      <span class="msg-num">#${i + 1}</span>
+      <span class="msg-text" title="${msg.replace(/"/g, '&quot;')}">${preview}</span>
+      <button class="secondary" data-show="${i}" style="padding:3px 8px;font-size:11px;">SHOW</button>
+      <button class="danger" data-remove="${i}">X</button>
+    `;
+    messageListEl.appendChild(item);
+  });
+
+  // Bind events
+  messageListEl.querySelectorAll('[data-show]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.show);
+      displayMessage(userMessages[idx]);
+    });
+  });
+  messageListEl.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.remove);
+      userMessages.splice(idx, 1);
+      saveMessages();
+      renderMessageList();
+    });
+  });
+}
+
+function saveMessages() {
+  try { localStorage.setItem('splitflap_messages', JSON.stringify(userMessages)); } catch(e) {}
+}
+
+function loadMessages() {
+  try {
+    const saved = localStorage.getItem('splitflap_messages');
+    if (saved) userMessages = JSON.parse(saved);
+  } catch(e) {}
+}
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  const s = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+function setStatus(msg) {
+  document.getElementById('status-bar').textContent = msg;
+}
+
+// ── EVENT HANDLERS ──
+document.getElementById('btn-show').addEventListener('click', () => {
+  const msg = document.getElementById('input-msg').value.trim();
+  if (msg) displayMessage(msg);
+});
+
+document.getElementById('btn-add').addEventListener('click', () => {
+  const msg = document.getElementById('input-msg').value.trim();
+  if (!msg) return;
+  userMessages.push(msg);
+  saveMessages();
+  renderMessageList();
+  document.getElementById('input-msg').value = '';
+  setStatus(`Message #${userMessages.length} added to rotation`);
+});
+
+document.getElementById('input-msg').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    e.preventDefault();
+    document.getElementById('btn-show').click();
+  }
+});
+
+// Feed buttons
+document.querySelectorAll('[data-feed]').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const feedType = btn.dataset.feed;
+    setStatus(`Loading ${RSS_SOURCES[feedType].label}...`);
+    const text = await fetchRSS(feedType);
+    if (text) displayMessage(text);
+  });
+});
+
+// Auto mode
+document.getElementById('btn-auto').addEventListener('click', () => {
+  autoMode = !autoMode;
+  const btn = document.getElementById('btn-auto');
+  btn.classList.toggle('active', autoMode);
+  if (autoMode) {
+    btn.textContent = 'AUTO ON';
+    autoIndex = 0;
+    runAutoRotation();
+    autoTimer = setInterval(runAutoRotation, autoInterval);
+  } else {
+    btn.textContent = 'AUTO';
+    clearInterval(autoTimer);
+    document.getElementById('auto-indicator').textContent = '';
+  }
+});
+
+document.getElementById('sel-interval').addEventListener('change', (e) => {
+  autoInterval = parseInt(e.target.value);
+  if (autoMode) {
+    clearInterval(autoTimer);
+    autoTimer = setInterval(runAutoRotation, autoInterval);
+  }
+});
+
+async function runAutoRotation() {
+  const queue = getAutoQueue();
+  if (queue.length === 0) {
+    // No user messages, just cycle feeds
+    const feedType = feedTypes[autoIndex % feedTypes.length];
+    autoIndex++;
+    setStatus(`Auto: ${RSS_SOURCES[feedType].label}...`);
+    document.getElementById('auto-indicator').innerHTML = `<span class="auto-source">${RSS_SOURCES[feedType].label}</span>`;
+    const text = await fetchRSS(feedType);
+    if (text) displayMessage(text);
+    return;
+  }
+
+  const item = queue[autoIndex % queue.length];
+  autoIndex++;
+
+  if (item.type === 'user') {
+    setStatus(`Auto: Message #${item.index + 1}`);
+    document.getElementById('auto-indicator').innerHTML = `<span class="auto-source user">MSG #${item.index + 1}</span>`;
+    displayMessage(item.text);
+  } else {
+    setStatus(`Auto: ${RSS_SOURCES[item.feed].label}...`);
+    document.getElementById('auto-indicator').innerHTML = `<span class="auto-source">${RSS_SOURCES[item.feed].label}</span>`;
+    const text = await fetchRSS(item.feed);
+    if (text) displayMessage(text);
+  }
+}
+
+// Grid settings
+document.getElementById('sel-cols').addEventListener('change', (e) => {
+  COLS = parseInt(e.target.value);
+  buildGrid();
+});
+
+document.getElementById('sel-rows').addEventListener('change', (e) => {
+  ROWS = parseInt(e.target.value);
+  buildGrid();
+});
+
+document.getElementById('sel-speed').addEventListener('change', (e) => {
+  FLIP_DELAY = parseInt(e.target.value);
+});
+
+document.getElementById('sel-theme').addEventListener('change', (e) => {
+  document.body.className = document.body.className.replace(/theme-\w+/g, '');
+  if (e.target.value !== 'yellow') {
+    document.body.classList.add('theme-' + e.target.value);
+  }
+});
+
+document.getElementById('sound-toggle').addEventListener('click', () => {
+  soundOn = !soundOn;
+  document.getElementById('sound-toggle').innerHTML = soundOn ? '&#128264;' : '&#128263;';
+});
+
+document.getElementById('btn-toggle-ctrl').addEventListener('click', () => {
+  document.getElementById('controls').classList.toggle('hidden');
+});
+
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    document.body.classList.add('fullscreen');
+  } else {
+    document.exitFullscreen();
+    document.body.classList.remove('fullscreen');
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement) {
+    document.body.classList.remove('fullscreen');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.body.classList.contains('fullscreen')) {
+    document.body.classList.remove('fullscreen');
+  }
+  if (e.key === ' ' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    document.getElementById('btn-auto').click();
+  }
+});
+
+// ── INIT ──
+loadMessages();
+buildGrid();
+renderMessageList();
+setTimeout(() => {
+  displayMessage('WELCOME TO THE\nSPLIT FLAP DISPLAY\nADD YOUR MESSAGES\nAND ENJOY!');
+}, 500);
+</script>
+</body>
+</html>
